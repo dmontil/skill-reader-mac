@@ -31,20 +31,6 @@ struct SidebarView: View {
                     }
                 }
                 .buttonStyle(.plain)
-
-                Button {
-                    store.filterType = store.filterType == .rule ? nil : .rule
-                } label: {
-                    HStack {
-                        Label("Rules", systemImage: "doc.text")
-                        Spacer()
-                        if store.filterType == .rule {
-                            Image(systemName: "checkmark").foregroundStyle(Color.accentColor)
-                        }
-                        Text("\(store.totalRules)").foregroundStyle(.secondary).font(.caption)
-                    }
-                }
-                .buttonStyle(.plain)
             }
 
             // Tools

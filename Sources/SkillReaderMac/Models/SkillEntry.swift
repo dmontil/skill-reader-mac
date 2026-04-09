@@ -14,6 +14,7 @@ struct SkillEntry: Identifiable, Hashable {
     var description: String
     var inode: UInt64
     var isHardlinked: Bool
+    var isSymlink: Bool
     var sizeKB: Double
     var entryType: EntryType
     var modificationDate: Date   // mtime of the SKILL.md / rule file

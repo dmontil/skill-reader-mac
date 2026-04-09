@@ -9,12 +9,8 @@ struct SkillListView: View {
     var body: some View {
         Table(store.filtered, selection: $selectedID, sortOrder: $sortOrder) {
             TableColumn("Name") { entry in
-                HStack(spacing: 4) {
-                    if entry.isHardlinked {
-                        Image(systemName: "link")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                    }
+                HStack(spacing: 6) {
+                    LinkIndicator(entry: entry)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(entry.name).fontWeight(.medium)
                         Text(entry.description)
@@ -58,6 +54,29 @@ struct SkillListView: View {
             }
         }
         .navigationSplitViewColumnWidth(min: 300, ideal: 380)
+    }
+}
+
+/// Shows a small icon indicating whether the skill dir is a symlink, hardlink, or plain dir.
+struct LinkIndicator: View {
+    let entry: SkillEntry
+
+    var body: some View {
+        Group {
+            if entry.isHardlinked {
+                Image(systemName: "link")
+                    .help("Hardlinked across \(entry.tools.joined(separator: ", "))")
+                    .foregroundStyle(Color.accentColor.opacity(0.8))
+            } else if entry.isSymlink {
+                Image(systemName: "arrow.turn.up.right")
+                    .help("Symlink")
+                    .foregroundStyle(Color.secondary)
+            } else {
+                Color.clear
+            }
+        }
+        .font(.caption2)
+        .frame(width: 12)
     }
 }
 

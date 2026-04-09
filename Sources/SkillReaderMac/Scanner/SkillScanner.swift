@@ -118,6 +118,8 @@ enum SkillScanner {
         let scope = scopes.count == 1 ? scopes[0] : "global+project"
         let project = occurrences.first(where: { $0.project != nil })?.project
 
+        let symlink = (try? first.dir.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
+
         return SkillEntry(
             name: fm.name ?? first.dir.lastPathComponent,
             tools: tools,
@@ -127,6 +129,7 @@ enum SkillScanner {
             description: fm.description ?? "",
             inode: inode,
             isHardlinked: tools.count > 1,
+            isSymlink: symlink,
             sizeKB: Double(size) / 1024,
             entryType: .skill,
             modificationDate: mtime,
@@ -154,6 +157,8 @@ enum SkillScanner {
                                 !$0.hasPrefix("#") && !$0.hasPrefix("---") }) ?? ""
         }
 
+        let symlink = (try? file.resourceValues(forKeys: [.isSymbolicLinkKey]))?.isSymbolicLink ?? false
+
         return SkillEntry(
             name: name,
             tools: [tool],
@@ -163,6 +168,7 @@ enum SkillScanner {
             description: description,
             inode: self.inode(of: file),
             isHardlinked: false,
+            isSymlink: symlink,
             sizeKB: Double(size) / 1024,
             entryType: .rule,
             modificationDate: mtime
