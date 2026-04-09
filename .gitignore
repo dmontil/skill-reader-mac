@@ -5,3 +5,5 @@
 xcuserdata/
 *.xcworkspace/
 DerivedData/
+dist/
+.build/
