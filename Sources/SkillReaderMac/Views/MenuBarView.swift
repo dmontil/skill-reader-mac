@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MenuBarView: View {
     @Environment(SkillStore.self) private var store
+    @Environment(\.openWindow) private var openWindow
     @State private var search = ""
 
     private var searchResults: [SkillEntry] {
@@ -85,8 +86,8 @@ struct MenuBarView: View {
             // Actions
             HStack {
                 Button {
-                    NSWorkspace.shared.open(URL(string: "skillreader://open")!)
-                    openMainWindow()
+                    openWindow(id: "main")
+                    NSApp.activate(ignoringOtherApps: true)
                 } label: {
                     Label("Open Skill Reader", systemImage: "arrow.up.forward.app")
                 }
@@ -113,13 +114,6 @@ struct MenuBarView: View {
         .frame(width: 340)
     }
 
-    private func openMainWindow() {
-        NSApp.activate(ignoringOtherApps: true)
-        for window in NSApp.windows where window.title.contains("Skill Reader") {
-            window.makeKeyAndOrderFront(nil)
-            return
-        }
-    }
 }
 
 private struct MenuBarSkillRow: View {

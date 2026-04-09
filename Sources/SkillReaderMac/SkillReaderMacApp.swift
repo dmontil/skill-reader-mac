@@ -5,7 +5,7 @@ struct SkillReaderMacApp: App {
     @State private var store = SkillStore()
 
     var body: some Scene {
-        WindowGroup("Skill Reader") {
+        WindowGroup("Skill Reader", id: "main") {
             ContentView()
                 .environment(store)
                 .frame(minWidth: 900, minHeight: 600)
