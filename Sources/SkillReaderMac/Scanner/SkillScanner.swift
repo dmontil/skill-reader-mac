@@ -184,10 +184,11 @@ enum SkillScanner {
 
     private static func iterateDirs(in base: URL, action: (URL) -> Void) {
         guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: base, includingPropertiesForKeys: [.isDirectoryKey], options: .skipsHiddenFiles
+            at: base, includingPropertiesForKeys: nil, options: .skipsHiddenFiles
         ) else { return }
         for url in contents.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
-            guard (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { continue }
+            // Use fileExists(isDirectory:) so symlinks to directories are followed
+            guard isDirectory(url) else { continue }
             action(url)
         }
     }
