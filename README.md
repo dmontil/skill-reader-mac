@@ -16,19 +16,30 @@ Native macOS app to manage AI agent skills — companion to the [skill-reader CL
 ## Requirements
 
 - macOS 14 (Sonoma) or later
-- Xcode 15+
 
-## Setup
+## Install
 
-1. Clone the repo
-2. Open `Package.swift` in Xcode
-3. Select the `SkillReaderMac` scheme
-4. Run (⌘R)
+### Option A — Download DMG (no Xcode needed)
+
+1. Download **[Skill Reader.dmg](https://github.com/dmontil/skill-reader-mac/releases/latest)** from the latest release
+2. Open it and drag **Skill Reader** → **Applications**
+
+> First launch: if macOS shows a security warning, right-click the app → **Open**.
+> The app is ad-hoc signed but not notarized.
+
+### Option B — Build from source (Xcode required)
 
 ```bash
 git clone https://github.com/dmontil/skill-reader-mac
 cd skill-reader-mac
-open Package.swift
+bash build-dmg.sh        # produces dist/Skill Reader.dmg
+open "dist/Skill Reader.dmg"
+```
+
+Or install directly to `~/Applications`:
+
+```bash
+bash install.sh
 ```
 
 ## Coexists with the CLI
