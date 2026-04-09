@@ -172,9 +172,9 @@ enum SkillScanner {
     // MARK: - Helpers
 
     static func inode(of url: URL) -> UInt64 {
-        var st = stat()
-        guard stat(url.path, &st) == 0 else { return 0 }
-        return UInt64(st.st_ino)
+        // Use FileManager to avoid Swift's stat() / Darwin.stat naming ambiguity.
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attrs?[.systemFileNumber] as? NSNumber)?.uint64Value ?? 0
     }
 
     private static func isDirectory(_ url: URL) -> Bool {

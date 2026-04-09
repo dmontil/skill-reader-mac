@@ -1,0 +1,36 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background rounded rect -->
+  <rect width="1024" height="1024" rx="224" fill="#1A1A2E"/>
+  <!-- Book body -->
+  <rect x="180" y="240" width="300" height="544" rx="24" fill="#16213E"/>
+  <rect x="184" y="244" width="292" height="536" rx="20" fill="#0F3460"/>
+  <!-- Book spine highlight -->
+  <rect x="180" y="240" width="24" height="544" rx="12" fill="#E94560"/>
+  <!-- Right page -->
+  <rect x="480" y="240" width="300" height="544" rx="24" fill="#16213E"/>
+  <rect x="484" y="244" width="292" height="536" rx="20" fill="#1A1A4E"/>
+  <!-- Spine center -->
+  <rect x="472" y="240" width="16" height="544" fill="#0A0A1A"/>
+  <!-- Lines on left page -->
+  <rect x="220" y="320" width="220" height="14" rx="7" fill="#E9456088"/>
+  <rect x="220" y="358" width="180" height="10" rx="5" fill="#ffffff30"/>
+  <rect x="220" y="384" width="200" height="10" rx="5" fill="#ffffff25"/>
+  <rect x="220" y="410" width="160" height="10" rx="5" fill="#ffffff20"/>
+  <rect x="220" y="450" width="200" height="10" rx="5" fill="#ffffff25"/>
+  <rect x="220" y="476" width="180" height="10" rx="5" fill="#ffffff20"/>
+  <rect x="220" y="502" width="140" height="10" rx="5" fill="#ffffff18"/>
+  <!-- Sparkle / star on right page -->
+  <g transform="translate(634,512)">
+    <polygon points="0,-80 18,-28 72,-24 30,10 44,64 0,34 -44,64 -30,10 -72,-24 -18,-28"
+             fill="#E94560" opacity="0.9"/>
+    <polygon points="0,-44 10,-15 40,-13 16,6 24,36 0,19 -24,36 -16,6 -40,-13 -10,-15"
+             fill="#FF8C94"/>
+  </g>
+  <!-- Small dots on right page (tool badges) -->
+  <circle cx="520" cy="360" r="12" fill="#E9456066"/>
+  <circle cx="552" cy="360" r="12" fill="#4CAF5066"/>
+  <circle cx="584" cy="360" r="12" fill="#2196F366"/>
+  <rect x="508" y="400" width="240" height="8" rx="4" fill="#ffffff20"/>
+  <rect x="508" y="422" width="180" height="8" rx="4" fill="#ffffff18"/>
+  <rect x="508" y="444" width="200" height="8" rx="4" fill="#ffffff15"/>
+</svg>

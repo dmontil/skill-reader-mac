@@ -1,0 +1,28 @@
+APP     = Skill Reader
+BUNDLE  = $(HOME)/Applications/$(APP).app
+SYSTEM  = /Applications/$(APP).app
+
+.PHONY: install install-system uninstall run clean
+
+## Install to ~/Applications (no sudo needed)
+install:
+	@bash install.sh "$(HOME)/Applications"
+
+## Install to /Applications (requires sudo)
+install-system:
+	@sudo bash install.sh "/Applications"
+
+## Run directly without installing
+run:
+	swift run
+
+## Remove from ~/Applications
+uninstall:
+	@rm -rf "$(BUNDLE)" && echo "✓ Removed $(BUNDLE)"
+
+## Remove from /Applications
+uninstall-system:
+	@sudo rm -rf "$(SYSTEM)" && echo "✓ Removed $(SYSTEM)"
+
+clean:
+	swift package clean
