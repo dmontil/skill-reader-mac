@@ -4,6 +4,8 @@ struct DetailView: View {
     @Environment(SkillStore.self) private var store
     let entry: SkillEntry
     @State private var showDeleteAlert = false
+    @State private var showDeleteError = false
+    @State private var deleteErrorMessage = ""
     @State private var content: String = ""
     @State private var isLoadingContent = false
 
@@ -28,7 +30,12 @@ struct DetailView: View {
         .task(id: entry.id) { await loadContent() }
         .alert("Delete \"\(entry.name)\"?", isPresented: $showDeleteAlert) {
             Button("Delete", role: .destructive) {
-                try? store.delete(entry, from: entry.tools)
+                do {
+                    try store.delete(entry, from: entry.tools)
+                } catch {
+                    deleteErrorMessage = error.localizedDescription
+                    showDeleteError = true
+                }
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -37,6 +44,11 @@ struct DetailView: View {
             } else {
                 Text("This action cannot be undone.")
             }
+        }
+        .alert("Delete failed", isPresented: $showDeleteError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(deleteErrorMessage)
         }
     }
 
@@ -49,6 +61,10 @@ struct DetailView: View {
                     TypeBadge(type: entry.entryType)
                     if entry.isHardlinked {
                         Label("Hardlinked", systemImage: "link")
+                            .font(.caption2)
+                            .foregroundStyle(Color.accentColor.opacity(0.8))
+                    } else if entry.isSymlink {
+                        Label("Symlink", systemImage: "arrow.turn.up.right")
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

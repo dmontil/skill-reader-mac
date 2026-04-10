@@ -44,6 +44,18 @@ struct SkillListView: View {
             }
             .width(80)
         }
+        .overlay {
+            if store.filtered.isEmpty && !store.isScanning {
+                VStack(spacing: 10) {
+                    Image(systemName: store.entries.isEmpty ? "tray" : "line.3.horizontal.decrease.circle")
+                        .font(.system(size: 28))
+                        .foregroundStyle(.tertiary)
+                    Text(store.entries.isEmpty ? "No skills found" : "No results match your filters")
+                        .foregroundStyle(.secondary)
+                        .font(.callout)
+                }
+            }
+        }
         .onChange(of: selectedID) { _, id in
             selectedEntry = store.filtered.first { $0.id == id }
             if let entry = selectedEntry { store.markViewed(entry) }

@@ -1,6 +1,10 @@
 # Skill Reader for macOS
 
-Native macOS app to manage AI agent skills — companion to the [skill-reader CLI](https://github.com/dmontil/skill-reader).
+Native macOS app to manage AI agent skills.
+
+> **Two interfaces available:**
+> - **macOS app (this repo)** — native SwiftUI app with menu bar extra, no Python required
+> - **[Skill Reader CLI + TUI](https://github.com/dmontil/skill-reader)** — cross-platform command-line tool (macOS, Linux, Windows)
 
 ## Features
 

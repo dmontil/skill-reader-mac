@@ -206,6 +206,8 @@ enum SkillScanner {
 
     private static func expand(parts: [String], from base: URL) -> [URL] {
         guard let first = parts.first else { return [base] }
+        // Reject path traversal and absolute components
+        guard !first.contains(".."), !first.hasPrefix("/") else { return [] }
         let rest = Array(parts.dropFirst())
 
         if first.contains("*") {
