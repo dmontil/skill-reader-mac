@@ -1,6 +1,17 @@
 import Foundation
 import SwiftUI
 
+struct ActivityEntry: Identifiable {
+    let id = UUID()
+    let date: Date
+    let message: String
+}
+
+private struct TrashedItem {
+    let originalURL: URL
+    let trashURL: URL
+}
+
 @Observable
 class SkillStore {
     var entries: [SkillEntry] = []
@@ -9,9 +20,15 @@ class SkillStore {
     var filterTool: String? = nil       // nil = all tools
     var filterScope: String? = nil      // nil = all scopes
     var filterType: EntryType? = nil    // nil = skill + rule
+    var isCompactMode = false
+    var showDescriptionInList = true
+    var activities: [ActivityEntry] = []
+    var toastMessage: String? = nil
+    var toastPrimaryPath: URL? = nil
 
     // UserDefaults key for recently viewed skill names
     private let recentKey = "recentlyViewed"
+    private var trashedItems: [TrashedItem] = []
 
     init() {
         scan()
@@ -46,6 +63,12 @@ class SkillStore {
             return true
         }
     }
+
+    var recentActivities: [ActivityEntry] {
+        Array(activities.prefix(20))
+    }
+
+    var canUndoDelete: Bool { !trashedItems.isEmpty }
 
     // MARK: - Recent skills (by modification date)
 
@@ -94,13 +117,86 @@ class SkillStore {
     // MARK: - Delete
 
     func delete(_ entry: SkillEntry, from toolsToDelete: [String]) throws {
+        var deletedCount = 0
+        toastPrimaryPath = nil
         for (tool, path) in zip(entry.tools, entry.paths) where toolsToDelete.contains(tool) {
-            if entry.entryType == .skill {
-                try FileManager.default.removeItem(at: path)
-            } else {
-                try FileManager.default.removeItem(at: path)
+            var trashedURL: NSURL?
+            try FileManager.default.trashItem(at: path, resultingItemURL: &trashedURL)
+            if let trashedURL = trashedURL as URL? {
+                trashedItems.insert(TrashedItem(originalURL: path, trashURL: trashedURL), at: 0)
+            }
+            deletedCount += 1
+            addActivity("Moved '\(entry.name)' to Trash (\(tool)).")
+        }
+        scan()
+        showToast("Moved \(deletedCount) item(s) to Trash. You can undo.")
+    }
+
+    func restoreLastDeleted() {
+        guard let item = trashedItems.first else { return }
+        do {
+            toastPrimaryPath = nil
+            let parent = item.originalURL.deletingLastPathComponent()
+            try FileManager.default.createDirectory(at: parent, withIntermediateDirectories: true)
+            try FileManager.default.moveItem(at: item.trashURL, to: item.originalURL)
+            trashedItems.removeFirst()
+            addActivity("Restored '\(item.originalURL.lastPathComponent)' from Trash.")
+            showToast("Restored last deleted item.")
+            scan()
+        } catch {
+            showToast("Undo failed: \(error.localizedDescription)")
+        }
+    }
+
+    // MARK: - Add / install
+
+    @discardableResult
+    func addSkill(
+        name: String,
+        tools: [String],
+        scope: String,
+        description: String,
+        content: String,
+        source: String? = nil,
+        risk: String? = nil,
+        dateAdded: String? = nil,
+        overwrite: Bool = false,
+        mode: SkillInstallMode = .hardlink
+    ) throws -> [URL] {
+        let created = try SkillScanner.installSkill(
+            name: name,
+            tools: tools,
+            scope: scope,
+            description: description,
+            content: content,
+            source: source,
+            risk: risk,
+            dateAdded: dateAdded,
+            overwrite: overwrite,
+            mode: mode
+        )
+        if let first = created.first {
+            toastPrimaryPath = first
+        }
+        addActivity("Added skill '\(name)' to \(created.count) location(s).")
+        showToast("Skill '\(name)' created in \(created.count) location(s).")
+        scan()
+        return created
+    }
+
+    // MARK: - Activity / toast
+
+    func addActivity(_ message: String) {
+        activities.insert(ActivityEntry(date: Date(), message: message), at: 0)
+    }
+
+    func showToast(_ message: String) {
+        toastMessage = message
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+            if self?.toastMessage == message {
+                self?.toastMessage = nil
             }
         }
-        entries.removeAll { $0.id == entry.id }
     }
 }

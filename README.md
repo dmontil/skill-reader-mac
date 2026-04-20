@@ -14,6 +14,7 @@ Native macOS app to manage AI agent skills.
 - **Open in editor** — one click opens the SKILL.md in your default .md app (Typora, iA Writer, VS Code…)
 - **Reveal in Finder** — jump to any skill directory instantly
 - **Delete with confirmation** — handles hardlinked skills across tools safely
+- **Add skills from the app** — create and install new skills to one or more tools
 - **13 tools supported** — Claude, Windsurf, Kiro, Codex, Cursor, Open Code, Cline, Zed, Amp, GitHub Copilot, Amazon Q, Aider
 - **Skills and rules** — SKILL.md-based skills and single-file rules (.clinerules, AGENTS.md, etc.)
 

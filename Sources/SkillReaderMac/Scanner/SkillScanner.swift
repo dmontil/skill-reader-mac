@@ -1,5 +1,10 @@
 import Foundation
 
+enum SkillInstallMode: String {
+    case copy
+    case hardlink
+}
+
 enum SkillScanner {
 
     // MARK: - Public
@@ -96,6 +101,113 @@ enum SkillScanner {
         ("amazonq", [".amazonq/rules/*.md"]),
         ("aider",   ["CONVENTIONS.md"]),
     ]
+
+    static var installableSkillTools: [String] {
+        projectSkillPaths.map(\.0)
+    }
+
+    static func plannedDestinations(
+        name: String,
+        tools: [String],
+        scope: String,
+        cwd: URL? = nil
+    ) throws -> [URL] {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else { return [] }
+        let current = cwd ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let uniqueTools = OrderedSet(tools).elements
+        return try uniqueTools.map { try destinationDir(tool: $0, scope: scope, cwd: current, skillName: cleanName) }
+    }
+
+    // MARK: - Install
+
+    static func installSkill(
+        name: String,
+        tools: [String],
+        scope: String,
+        cwd: URL? = nil,
+        description: String,
+        content: String,
+        source: String? = nil,
+        risk: String? = nil,
+        dateAdded: String? = nil,
+        overwrite: Bool = false,
+        mode: SkillInstallMode = .hardlink
+    ) throws -> [URL] {
+        let cleanName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleanName.isEmpty else {
+            throw NSError(domain: "SkillReader", code: 1, userInfo: [NSLocalizedDescriptionKey: "Skill name cannot be empty."])
+        }
+        guard scope == "global" || scope == "project" else {
+            throw NSError(domain: "SkillReader", code: 2, userInfo: [NSLocalizedDescriptionKey: "Scope must be global or project."])
+        }
+        guard !tools.isEmpty else {
+            throw NSError(domain: "SkillReader", code: 3, userInfo: [NSLocalizedDescriptionKey: "Select at least one tool."])
+        }
+
+        let uniqueTools = OrderedSet(tools).elements
+        let unsupported = uniqueTools.filter { !installableSkillTools.contains($0) }
+        guard unsupported.isEmpty else {
+            throw NSError(
+                domain: "SkillReader",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "Unsupported tool(s): \(unsupported.joined(separator: ", "))"]
+            )
+        }
+
+        let current = cwd ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        let destinations = try uniqueTools.map { try destinationDir(tool: $0, scope: scope, cwd: current, skillName: cleanName) }
+
+        for dest in destinations {
+            if FileManager.default.fileExists(atPath: dest.path) {
+                if overwrite {
+                    try FileManager.default.removeItem(at: dest)
+                } else {
+                    throw NSError(
+                        domain: "SkillReader",
+                        code: 5,
+                        userInfo: [NSLocalizedDescriptionKey: "Destination already exists: \(dest.path(percentEncoded: false))"]
+                    )
+                }
+            }
+        }
+
+        for dest in destinations {
+            try FileManager.default.createDirectory(at: dest.deletingLastPathComponent(), withIntermediateDirectories: true)
+        }
+
+        // Write source directory in a temporary location, then copy/hardlink into tool destinations.
+        let tempRoot = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("skill-reader-\(UUID().uuidString)")
+        let sourceDir = tempRoot.appendingPathComponent(cleanName, isDirectory: true)
+        try FileManager.default.createDirectory(at: sourceDir, withIntermediateDirectories: true)
+        let skillMD = sourceDir.appendingPathComponent("SKILL.md")
+        try renderSkillMD(
+            name: cleanName,
+            description: description,
+            content: content,
+            source: source,
+            risk: risk,
+            dateAdded: dateAdded
+        ).write(to: skillMD, atomically: true, encoding: .utf8)
+
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        var created: [URL] = []
+        for (idx, dest) in destinations.enumerated() {
+            if idx == 0 || mode == .copy {
+                try copyDirectory(from: sourceDir, to: dest)
+            } else {
+                do {
+                    try hardlinkDirectory(from: sourceDir, to: dest)
+                } catch {
+                    try copyDirectory(from: sourceDir, to: dest)
+                }
+            }
+            created.append(dest)
+        }
+        return created
+    }
 
     // MARK: - Entry builders
 
@@ -234,6 +346,99 @@ enum SkillScanner {
         return (try? NSRegularExpression(pattern: regexPattern).firstMatch(
             in: name, range: NSRange(name.startIndex..., in: name)
         )) != nil
+    }
+
+    private static func destinationDir(tool: String, scope: String, cwd: URL, skillName: String) throws -> URL {
+        let base: URL
+        if scope == "global" {
+            guard let entry = globalSkillPaths().first(where: { $0.0 == tool }) else {
+                throw NSError(domain: "SkillReader", code: 6, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(tool)"])
+            }
+            base = entry.1
+        } else {
+            guard let rel = projectSkillPaths.first(where: { $0.0 == tool })?.1 else {
+                throw NSError(domain: "SkillReader", code: 7, userInfo: [NSLocalizedDescriptionKey: "Unknown tool: \(tool)"])
+            }
+            base = cwd.appendingPathComponent(rel)
+        }
+        return base.appendingPathComponent(skillName, isDirectory: true)
+    }
+
+    private static func copyDirectory(from src: URL, to dst: URL) throws {
+        try FileManager.default.copyItem(at: src, to: dst)
+    }
+
+    private static func hardlinkDirectory(from src: URL, to dst: URL) throws {
+        try FileManager.default.createDirectory(at: dst, withIntermediateDirectories: true)
+        let contents = try FileManager.default.contentsOfDirectory(at: src, includingPropertiesForKeys: [.isDirectoryKey], options: [.skipsHiddenFiles])
+        for item in contents {
+            let values = try item.resourceValues(forKeys: [.isDirectoryKey])
+            let target = dst.appendingPathComponent(item.lastPathComponent)
+            if values.isDirectory == true {
+                try hardlinkDirectory(from: item, to: target)
+            } else {
+                do {
+                    try FileManager.default.linkItem(at: item, to: target)
+                } catch {
+                    try FileManager.default.copyItem(at: item, to: target)
+                }
+            }
+        }
+    }
+
+    private static func yamlLine(key: String, value: String?) -> String? {
+        guard let value else { return nil }
+        let cleaned = value.replacingOccurrences(of: "\n", with: " ").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !cleaned.isEmpty else { return nil }
+        let escaped = cleaned
+            .replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+        return "\(key): \"\(escaped)\""
+    }
+
+    private static func renderSkillMD(
+        name: String,
+        description: String,
+        content: String,
+        source: String?,
+        risk: String?,
+        dateAdded: String?
+    ) -> String {
+        let templateBody = """
+        ## Purpose
+        Explain what this skill does and the outcome it should produce.
+
+        ## When To Use
+        - Trigger phrase 1
+        - Trigger phrase 2
+
+        ## Inputs
+        - Input A
+        - Input B
+
+        ## Steps
+        1. Step one.
+        2. Step two.
+        3. Step three.
+
+        ## Output
+        Describe the expected output format and quality bar.
+        """
+
+        var lines: [String] = ["---"]
+        lines.append(yamlLine(key: "name", value: name) ?? "name: \"unnamed-skill\"")
+        lines.append(yamlLine(key: "description", value: description) ?? "description: \"\"")
+        if let line = yamlLine(key: "source", value: source) { lines.append(line) }
+        if let line = yamlLine(key: "risk", value: risk) { lines.append(line) }
+        if let line = yamlLine(key: "date_added", value: dateAdded) { lines.append(line) }
+        lines.append("---")
+        lines.append("")
+        lines.append("# \(name)")
+        lines.append("")
+        let body = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        lines.append(body.isEmpty ? templateBody : body)
+        lines.append("")
+        return lines.joined(separator: "\n")
     }
 }
 

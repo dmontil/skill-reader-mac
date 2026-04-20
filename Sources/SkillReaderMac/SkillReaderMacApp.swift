@@ -13,6 +13,11 @@ struct SkillReaderMacApp: App {
         .windowStyle(.titleBar)
         .commands {
             CommandGroup(after: .newItem) {
+                Button("Add Skill…") {
+                    NotificationCenter.default.post(name: .openAddSkillSheet, object: nil)
+                }
+                .keyboardShortcut("n", modifiers: .command)
+
                 Button("Refresh Skills") {
                     store.scan()
                 }
@@ -28,4 +33,8 @@ struct SkillReaderMacApp: App {
         }
         .menuBarExtraStyle(.window)
     }
+}
+
+extension Notification.Name {
+    static let openAddSkillSheet = Notification.Name("openAddSkillSheet")
 }
