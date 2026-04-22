@@ -35,6 +35,31 @@ struct SkillEntry: Identifiable, Hashable {
     var toolsDisplay: String { tools.joined(separator: ", ") }
     var projectDisplay: String { project ?? "—" }
     var scopeIcon: String { scope.contains("global") ? "globe" : "folder" }
+    var assetID: String {
+        switch entryType {
+        case .skill:
+            return primaryPath.lastPathComponent
+        case .rule:
+            return primaryPath.deletingPathExtension().lastPathComponent.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        }
+    }
+
+    var useCaseHints: [String] {
+        let corpus = [name, description, source ?? "", risk ?? ""].joined(separator: " ").lowercased()
+        let hintMap: [(String, [String])] = [
+            ("Research", ["research", "investigate", "evidence", "source", "fact"]),
+            ("Coding", ["code", "implement", "refactor", "build", "ship"]),
+            ("Review", ["review", "bug", "regression", "audit", "test"]),
+            ("Performance", ["performance", "speed", "latency", "core web vitals", "optimize"]),
+            ("Security", ["security", "secure", "auth", "owasp", "privacy"]),
+            ("UX", ["ux", "ui", "design", "accessibility", "a11y"]),
+            ("Content", ["copy", "seo", "marketing", "landing", "headline"]),
+        ]
+
+        return hintMap.compactMap { label, needles in
+            needles.contains { corpus.contains($0) } ? label : nil
+        }
+    }
 
     static func == (lhs: SkillEntry, rhs: SkillEntry) -> Bool { lhs.id == rhs.id }
     func hash(into hasher: inout Hasher) { hasher.combine(id) }

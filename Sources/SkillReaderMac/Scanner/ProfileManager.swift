@@ -104,6 +104,60 @@ enum ProfileManager {
         }
     }
 
+    static func loadLibraryAssets(kind: ProfileAssetKind? = nil) -> [LibraryAssetEntry] {
+        try? ensureStorage()
+        let kinds = kind.map { [$0] } ?? ProfileAssetKind.allCases
+        let assets = kinds.flatMap { loadLibraryAssets(for: $0) }
+        return assets.sorted {
+            if $0.kind != $1.kind {
+                return $0.kind.rawValue < $1.kind.rawValue
+            }
+            return $0.assetID.localizedCaseInsensitiveCompare($1.assetID) == .orderedAscending
+        }
+    }
+
+    static func importEntryToLibrary(_ entry: SkillEntry) throws -> LibraryAssetEntry {
+        try ensureStorage()
+
+        switch entry.entryType {
+        case .skill:
+            let destDir = libraryRoot().appendingPathComponent("skills/\(entry.assetID)", isDirectory: true)
+            if !FileManager.default.fileExists(atPath: destDir.path) {
+                try copyItemReplacingIfNeeded(from: entry.primaryPath, to: destDir)
+            }
+
+            let skillURL = destDir.appendingPathComponent("SKILL.md")
+            let text = (try? String(contentsOf: skillURL, encoding: .utf8)) ?? ""
+            let (metadata, body) = parseFrontmatter(text)
+            return LibraryAssetEntry(
+                kind: .skill,
+                assetID: entry.assetID,
+                title: metadata["name"] ?? entry.name,
+                detail: metadata["description"] ?? firstMeaningfulLine(from: body),
+                sourceURL: destDir,
+                sourceKind: .library
+            )
+
+        case .rule:
+            let ext = entry.primaryPath.pathExtension.isEmpty ? "md" : entry.primaryPath.pathExtension
+            let destFile = libraryRoot().appendingPathComponent("rules/\(entry.assetID).\(ext)")
+            if !FileManager.default.fileExists(atPath: destFile.path) {
+                try copyItemReplacingIfNeeded(from: entry.primaryPath, to: destFile)
+            }
+
+            let text = (try? String(contentsOf: destFile, encoding: .utf8)) ?? ""
+            let (metadata, body) = parseFrontmatter(text)
+            return LibraryAssetEntry(
+                kind: .rule,
+                assetID: entry.assetID,
+                title: metadata["name"] ?? entry.name,
+                detail: metadata["description"] ?? firstMeaningfulLine(from: body),
+                sourceURL: destFile,
+                sourceKind: .library
+            )
+        }
+    }
+
     static func addAsset(profileName: String, kind: ProfileAssetKind, assetID: String) throws -> ProfileEntry {
         var profile = try loadProfile(named: profileName)
         let cleanID = assetID.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -161,6 +215,35 @@ enum ProfileManager {
             try writeCursorRule(rulesDir: cwd.appendingPathComponent(".cursor/rules", isDirectory: true), profileName: name, profile: profile, tool: tool, assets: resolved, manifest: &manifest)
         }
         try saveManifest(manifest, at: manifestURL)
+    }
+
+    static func previewApplication(name: String, tool: String, cwd: URL) throws -> ProfileApplicationPreview {
+        let profile = try loadProfile(named: name)
+        guard profileTools.contains(tool) else {
+            throw NSError(domain: "SkillReader", code: 409, userInfo: [NSLocalizedDescriptionKey: "Unsupported tool: \(tool)"])
+        }
+        guard !profile.assets.isEmpty else {
+            throw NSError(domain: "SkillReader", code: 410, userInfo: [NSLocalizedDescriptionKey: "Profile '\(name)' has no assets."])
+        }
+
+        let resolved = try profile.assets.map(resolveAsset)
+        let plan = plannedWrites(profileName: name, profile: profile, tool: tool, cwd: cwd, assets: resolved)
+
+        return ProfileApplicationPreview(
+            profileName: name,
+            tool: tool,
+            cwd: cwd,
+            assets: resolved.map {
+                ProfilePreviewAsset(
+                    kind: $0.kind,
+                    assetID: $0.assetID,
+                    title: $0.title,
+                    description: $0.description
+                )
+            },
+            generatedPaths: plan.generated,
+            managedFiles: plan.managed
+        )
     }
 
     // MARK: - YAML
@@ -283,6 +366,56 @@ enum ProfileManager {
         }
     }
 
+    private static func loadLibraryAssets(for kind: ProfileAssetKind) -> [LibraryAssetEntry] {
+        switch kind {
+        case .skill:
+            let dir = libraryRoot().appendingPathComponent("skills", isDirectory: true)
+            let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+            return items.compactMap { item in
+                guard item.hasDirectoryPath else { return nil }
+                let skillURL = item.appendingPathComponent("SKILL.md")
+                guard FileManager.default.fileExists(atPath: skillURL.path) else { return nil }
+                let text = (try? String(contentsOf: skillURL, encoding: .utf8)) ?? ""
+                let (metadata, body) = parseFrontmatter(text)
+                let detail = metadata["description"] ?? firstMeaningfulLine(from: body)
+                return LibraryAssetEntry(
+                    kind: .skill,
+                    assetID: item.lastPathComponent,
+                    title: metadata["name"] ?? item.lastPathComponent,
+                    detail: detail,
+                    sourceURL: item
+                )
+            }
+        case .rule:
+            let dir = libraryRoot().appendingPathComponent("rules", isDirectory: true)
+            let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+            return items.filter { !$0.hasDirectoryPath }.map { item in
+                let text = (try? String(contentsOf: item, encoding: .utf8)) ?? ""
+                let (metadata, body) = parseFrontmatter(text)
+                return LibraryAssetEntry(
+                    kind: .rule,
+                    assetID: item.deletingPathExtension().lastPathComponent,
+                    title: metadata["name"] ?? item.deletingPathExtension().lastPathComponent,
+                    detail: metadata["description"] ?? firstMeaningfulLine(from: body),
+                    sourceURL: item
+                )
+            }
+        case .agents:
+            let dir = libraryRoot().appendingPathComponent("agents", isDirectory: true)
+            let items = (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])) ?? []
+            return items.filter { !$0.hasDirectoryPath && $0.pathExtension.lowercased() == "md" }.map { item in
+                let text = (try? String(contentsOf: item, encoding: .utf8)) ?? ""
+                return LibraryAssetEntry(
+                    kind: .agents,
+                    assetID: item.deletingPathExtension().lastPathComponent,
+                    title: item.deletingPathExtension().lastPathComponent,
+                    detail: firstMeaningfulLine(from: text),
+                    sourceURL: item
+                )
+            }
+        }
+    }
+
     private static func parseFrontmatter(_ text: String) -> ([String: String], String) {
         guard text.hasPrefix("---\n") else { return ([:], text) }
         let parts = text.components(separatedBy: "\n---\n")
@@ -297,6 +430,21 @@ enum ProfileManager {
         }
         let body = parts.dropFirst().joined(separator: "\n---\n")
         return (metadata, body)
+    }
+
+    private static func firstMeaningfulLine(from text: String) -> String {
+        text
+            .components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .first { !$0.isEmpty && !$0.hasPrefix("#") && !$0.hasPrefix("---") } ?? ""
+    }
+
+    private static func copyItemReplacingIfNeeded(from source: URL, to destination: URL) throws {
+        if FileManager.default.fileExists(atPath: destination.path) {
+            try FileManager.default.removeItem(at: destination)
+        }
+        try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try FileManager.default.copyItem(at: source, to: destination)
     }
 
     // MARK: - Materialization
@@ -401,6 +549,37 @@ enum ProfileManager {
     }
 
     // MARK: - Manifest / cleanup
+
+    private static func plannedWrites(profileName: String, profile: ProfileEntry, tool: String, cwd: URL, assets: [ResolvedAsset]) -> (generated: [URL], managed: [URL]) {
+        let generatedSkills: [URL]
+        let managedFiles: [URL]
+
+        switch tool {
+        case "codex":
+            generatedSkills = plannedSkillDestinations(baseDir: cwd.appendingPathComponent(".agents/skills", isDirectory: true), assets: assets)
+            managedFiles = [cwd.appendingPathComponent("AGENTS.md")]
+        case "claude":
+            generatedSkills = plannedSkillDestinations(baseDir: cwd.appendingPathComponent(".claude/skills", isDirectory: true), assets: assets)
+            managedFiles = [cwd.appendingPathComponent("CLAUDE.md")]
+        case "windsurf":
+            generatedSkills = plannedSkillDestinations(baseDir: cwd.appendingPathComponent(".windsurf/skills", isDirectory: true), assets: assets)
+            managedFiles = [cwd.appendingPathComponent(".windsurf/rules/profile-\(profileName).md")]
+        case "opencode":
+            generatedSkills = plannedSkillDestinations(baseDir: cwd.appendingPathComponent(".opencode/skills", isDirectory: true), assets: assets)
+            managedFiles = [cwd.appendingPathComponent("AGENTS.md")]
+        default:
+            generatedSkills = [cwd.appendingPathComponent(".cursor/rules/profile-\(profile.name).mdc")]
+            managedFiles = []
+        }
+
+        return (generatedSkills, managedFiles)
+    }
+
+    private static func plannedSkillDestinations(baseDir: URL, assets: [ResolvedAsset]) -> [URL] {
+        assets
+            .filter { $0.kind == .skill }
+            .map { baseDir.appendingPathComponent($0.assetID, isDirectory: true) }
+    }
 
     private static func manifestPath(cwd: URL, profileName: String, tool: String) -> URL {
         cwd.appendingPathComponent(".skill-reader/applied-profiles/\(tool)--\(profileName).json")

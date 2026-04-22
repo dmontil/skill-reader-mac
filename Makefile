@@ -1,8 +1,18 @@
 APP     = Skill Reader
 BUNDLE  = $(HOME)/Applications/$(APP).app
 SYSTEM  = /Applications/$(APP).app
+DISTAPP = dist/$(APP).app
+DMG     = dist/$(APP).dmg
 
-.PHONY: install install-system uninstall run clean
+.PHONY: app dmg install install-system uninstall run clean
+
+## Build a standalone .app bundle in ./dist
+app:
+	@bash assemble-app.sh dist
+
+## Build a distributable DMG for drag-and-drop install
+dmg:
+	@bash build-dmg.sh
 
 ## Install to ~/Applications (no sudo needed)
 install:
@@ -26,3 +36,4 @@ uninstall-system:
 
 clean:
 	swift package clean
+	@rm -rf dist

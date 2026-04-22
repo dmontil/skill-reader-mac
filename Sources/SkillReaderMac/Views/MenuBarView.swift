@@ -6,11 +6,7 @@ struct MenuBarView: View {
     @State private var search = ""
 
     private var searchResults: [SkillEntry] {
-        guard !search.isEmpty else { return [] }
-        let q = search.lowercased()
-        return store.entries.filter {
-            $0.name.lowercased().contains(q) || $0.description.lowercased().contains(q)
-        }.prefix(5).map { $0 }
+        store.matchingEntries(for: search, limit: 5)
     }
 
     var body: some View {
@@ -74,12 +70,34 @@ struct MenuBarView: View {
             HStack(spacing: 12) {
                 Label("\(store.totalSkills) skills", systemImage: "sparkles")
                 Label("\(store.totalRules) rules", systemImage: "doc.text")
+                Label("\(store.totalProfiles) profiles", systemImage: "square.stack.3d.up")
                 Label("\(store.hardlinked) linked", systemImage: "link")
             }
             .font(.caption)
             .foregroundStyle(.secondary)
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
+
+            if store.orphanedEntries.count > 0 || store.emptyProfiles.count > 0 {
+                Divider()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    SectionHeader("Health")
+                    if store.orphanedEntries.count > 0 {
+                        Text("\(store.orphanedEntries.count) orphaned asset(s)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                    }
+                    if store.emptyProfiles.count > 0 {
+                        Text("\(store.emptyProfiles.count) empty profile(s)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 12)
+                    }
+                }
+                .padding(.bottom, 6)
+            }
 
             Divider()
 

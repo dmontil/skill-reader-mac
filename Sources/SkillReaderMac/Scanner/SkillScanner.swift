@@ -209,6 +209,30 @@ enum SkillScanner {
         return created
     }
 
+    static func updateMetadata(
+        for entry: SkillEntry,
+        description: String,
+        source: String?,
+        risk: String?,
+        dateAdded: String?
+    ) throws {
+        guard let contentURL = entry.contentURL else {
+            throw NSError(domain: "SkillReader", code: 8, userInfo: [NSLocalizedDescriptionKey: "No editable content found for this asset."])
+        }
+
+        let original = try String(contentsOf: contentURL, encoding: .utf8)
+        let parsed = FrontmatterParser.parse(original)
+        let updated = renderDocumentWithFrontmatter(
+            name: entry.name,
+            description: description,
+            source: source,
+            risk: risk,
+            dateAdded: dateAdded,
+            body: parsed.body.isEmpty ? original.trimmingCharacters(in: .whitespacesAndNewlines) : parsed.body
+        )
+        try updated.write(to: contentURL, atomically: true, encoding: .utf8)
+    }
+
     // MARK: - Entry builders
 
     private static func buildSkillEntry(
@@ -437,6 +461,27 @@ enum SkillScanner {
         lines.append("")
         let body = content.trimmingCharacters(in: .whitespacesAndNewlines)
         lines.append(body.isEmpty ? templateBody : body)
+        lines.append("")
+        return lines.joined(separator: "\n")
+    }
+
+    private static func renderDocumentWithFrontmatter(
+        name: String,
+        description: String,
+        source: String?,
+        risk: String?,
+        dateAdded: String?,
+        body: String
+    ) -> String {
+        var lines: [String] = ["---"]
+        lines.append(yamlLine(key: "name", value: name) ?? "name: \"unnamed-skill\"")
+        lines.append(yamlLine(key: "description", value: description) ?? "description: \"\"")
+        if let line = yamlLine(key: "source", value: source) { lines.append(line) }
+        if let line = yamlLine(key: "risk", value: risk) { lines.append(line) }
+        if let line = yamlLine(key: "date_added", value: dateAdded) { lines.append(line) }
+        lines.append("---")
+        lines.append("")
+        lines.append(body.trimmingCharacters(in: .whitespacesAndNewlines))
         lines.append("")
         return lines.joined(separator: "\n")
     }

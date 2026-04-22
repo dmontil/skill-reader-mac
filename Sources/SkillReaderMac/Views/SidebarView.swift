@@ -33,6 +33,21 @@ struct SidebarView: View {
                         Label("\(store.totalProfiles) profiles", systemImage: "number")
                             .foregroundStyle(.secondary)
                     }
+
+                    let suggested = store.suggestedProfiles()
+                    if !suggested.isEmpty {
+                        Section("Suggested") {
+                            ForEach(suggested) { profile in
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(profile.name)
+                                    Text(profile.assetSummary.isEmpty ? profile.description : profile.assetSummary)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                        }
+                    }
                 }
                 .listStyle(.sidebar)
                 .scrollContentBackground(.hidden)
@@ -114,6 +129,22 @@ struct SidebarView: View {
                     Section("View") {
                         Toggle("Compact rows", isOn: $store.isCompactMode)
                         Toggle("Show description", isOn: $store.showDescriptionInList)
+                    }
+
+                    let viewed = Array(store.mostViewedEntries.prefix(5))
+                    if !viewed.isEmpty {
+                        Section("Most Viewed") {
+                            ForEach(viewed) { entry in
+                                HStack {
+                                    Text(entry.name)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text("\(store.viewCount(for: entry))x")
+                                        .foregroundStyle(.secondary)
+                                        .font(.caption)
+                                }
+                            }
+                        }
                     }
                 }
                 .listStyle(.sidebar)

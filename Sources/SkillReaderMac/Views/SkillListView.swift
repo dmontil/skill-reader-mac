@@ -65,12 +65,20 @@ struct SkillListView: View {
             Text(store.entries.isEmpty ? "No skills found" : "No results match your filters")
                 .foregroundStyle(.white.opacity(0.65))
                 .font(.callout)
+            Text(store.entries.isEmpty
+                 ? "Create your first skill or scan a project that already contains agent instructions."
+                 : "Try searching by tool, scope, risk, source, or the kind of work you want this asset to help with.")
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.white.opacity(0.45))
+                .font(.caption)
+                .frame(maxWidth: 320)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
 private struct SkillRow: View {
+    @Environment(SkillStore.self) private var store
     let entry: SkillEntry
     let isSelected: Bool
 
@@ -99,11 +107,18 @@ private struct SkillRow: View {
                             .foregroundStyle(.white.opacity(0.45))
                             .lineLimit(1)
                     }
+                    let usageCount = store.profilesUsing(entry).count
+                    if usageCount > 0 {
+                        Text("Used in \(usageCount) profile\(usageCount == 1 ? "" : "s")")
+                            .font(.caption2)
+                            .foregroundStyle(.teal.opacity(0.85))
+                            .lineLimit(1)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Text(entry.entryType == .skill ? "Type" : "Rule")
+            Text(entry.entryType == .skill ? "Skill" : "Rule")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.75))
                 .frame(width: 70, alignment: .leading)

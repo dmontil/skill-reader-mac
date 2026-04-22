@@ -28,6 +28,13 @@ struct ProfileListView: View {
                         .foregroundStyle(.white.opacity(0.35))
                     Text(store.profiles.isEmpty ? "No profiles found" : "No profiles match your search")
                         .foregroundStyle(.white.opacity(0.65))
+                    if store.profiles.isEmpty {
+                        Text("Start with a small playbook: create a profile, add 2-3 assets, then preview how it will materialize into a real project.")
+                            .multilineTextAlignment(.center)
+                            .foregroundStyle(.white.opacity(0.45))
+                            .font(.caption)
+                            .frame(maxWidth: 320)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
@@ -48,6 +55,7 @@ struct ProfileListView: View {
 }
 
 private struct ProfileRow: View {
+    @Environment(SkillStore.self) private var store
     let profile: ProfileEntry
     let isSelected: Bool
 
@@ -61,6 +69,12 @@ private struct ProfileRow: View {
                     .font(.caption2)
                     .lineLimit(1)
                     .foregroundStyle(.white.opacity(0.45))
+                if !profile.assetSummary.isEmpty {
+                    Text(profile.assetSummary)
+                        .font(.caption2)
+                        .lineLimit(1)
+                        .foregroundStyle(.mint.opacity(0.8))
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -68,9 +82,17 @@ private struct ProfileRow: View {
                 .frame(width: 70, alignment: .leading)
                 .foregroundStyle(.white.opacity(0.78))
 
-            Text("\(profile.targets.count)")
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(profile.targets.count)")
+                    .foregroundStyle(.white.opacity(0.78))
+                let applyCount = store.applyCount(for: profile)
+                if applyCount > 0 {
+                    Text("\(applyCount)x")
+                        .font(.caption2)
+                        .foregroundStyle(.mint.opacity(0.75))
+                }
+            }
                 .frame(width: 110, alignment: .leading)
-                .foregroundStyle(.white.opacity(0.78))
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)

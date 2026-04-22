@@ -13,46 +13,10 @@ DMG_RW="$DIST/rw.$APP_NAME.dmg"
 DMG_OUT="$DIST/$APP_NAME.dmg"
 VOL_NAME="$APP_NAME"
 
-# ── 1. Build ───────────────────────────────────────────────────────────────
-echo "-> Building release binary..."
-swift build -c release --quiet
-BINARY=".build/release/$BINARY_NAME"
-[ -f "$BINARY" ] || { echo "Build failed."; exit 1; }
-
-# ── 2. Create .app bundle ──────────────────────────────────────────────────
-echo "-> Assembling $APP_NAME.app..."
 rm -rf "$STAGING"
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources"
-cp "$BINARY" "$APP_BUNDLE/Contents/MacOS/$BINARY_NAME"
-cp "Assets/AppIcon.icns" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
+bash assemble-app.sh "$STAGING"
 
-cat > "$APP_BUNDLE/Contents/Info.plist" << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleIdentifier</key>           <string>com.dmontil.skill-reader-mac</string>
-    <key>CFBundleName</key>                 <string>Skill Reader</string>
-    <key>CFBundleDisplayName</key>          <string>Skill Reader</string>
-    <key>CFBundleExecutable</key>           <string>SkillReaderMac</string>
-    <key>CFBundlePackageType</key>          <string>APPL</string>
-    <key>CFBundleVersion</key>              <string>1.0</string>
-    <key>CFBundleShortVersionString</key>   <string>1.0</string>
-    <key>LSMinimumSystemVersion</key>       <string>14.0</string>
-    <key>NSHighResolutionCapable</key>      <true/>
-    <key>NSPrincipalClass</key>             <string>NSApplication</string>
-    <key>NSSupportsAutomaticTermination</key><true/>
-    <key>CFBundleIconFile</key>             <string>AppIcon</string>
-</dict>
-</plist>
-EOF
-
-# ── 3. Ad-hoc sign ─────────────────────────────────────────────────────────
-echo "-> Signing (ad-hoc)..."
-codesign --force --deep -s - "$APP_BUNDLE"
-
-# ── 4. Build DMG (no Finder/AppleScript dependency) ───────────────────────
+# ── Build DMG (no Finder/AppleScript dependency) ──────────────────────────
 echo "-> Building DMG..."
 rm -f "$DMG_OUT" "$DMG_RW"
 
