@@ -18,6 +18,11 @@ struct SkillReaderMacApp: App {
                 }
                 .keyboardShortcut("n", modifiers: .command)
 
+                Button("Add Profile…") {
+                    NotificationCenter.default.post(name: .openAddProfileSheet, object: nil)
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+
                 Button("Refresh Skills") {
                     store.scan()
                 }
@@ -37,4 +42,5 @@ struct SkillReaderMacApp: App {
 
 extension Notification.Name {
     static let openAddSkillSheet = Notification.Name("openAddSkillSheet")
+    static let openAddProfileSheet = Notification.Name("openAddProfileSheet")
 }

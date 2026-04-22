@@ -15,8 +15,10 @@ private struct TrashedItem {
 @Observable
 class SkillStore {
     var entries: [SkillEntry] = []
+    var profiles: [ProfileEntry] = []
     var isScanning = false
     var searchText = ""
+    var browserMode: BrowserMode = .skills
     var filterTool: String? = nil       // nil = all tools
     var filterScope: String? = nil      // nil = all scopes
     var filterType: EntryType? = nil    // nil = skill + rule
@@ -40,9 +42,13 @@ class SkillStore {
         isScanning = true
         Task { @MainActor [weak self] in
             let result = await Task.detached(priority: .userInitiated) {
-                SkillScanner.scan(cwd: cwd)
+                (
+                    SkillScanner.scan(cwd: cwd),
+                    ProfileManager.loadProfiles()
+                )
             }.value
-            self?.entries = result
+            self?.entries = result.0
+            self?.profiles = result.1
             self?.isScanning = false
         }
     }
@@ -61,6 +67,16 @@ class SkillStore {
                        entry.tools.joined().lowercased().contains(q)
             }
             return true
+        }
+    }
+
+    var filteredProfiles: [ProfileEntry] {
+        profiles.filter { profile in
+            if searchText.isEmpty { return true }
+            let q = searchText.lowercased()
+            return profile.name.lowercased().contains(q) ||
+                   profile.description.lowercased().contains(q) ||
+                   profile.assets.contains(where: { $0.assetID.lowercased().contains(q) })
         }
     }
 
@@ -105,6 +121,7 @@ class SkillStore {
     var totalSkills: Int { entries.filter { $0.entryType == .skill }.count }
     var totalRules: Int  { entries.filter { $0.entryType == .rule  }.count }
     var hardlinked: Int  { entries.filter { $0.isHardlinked }.count }
+    var totalProfiles: Int { profiles.count }
 
     var countsByTool: [String: Int] {
         var result: [String: Int] = [:]
@@ -198,5 +215,48 @@ class SkillStore {
                 self?.toastMessage = nil
             }
         }
+    }
+
+    // MARK: - Profiles
+
+    @discardableResult
+    func createProfile(name: String, description: String) throws -> ProfileEntry {
+        let profile = try ProfileManager.createProfile(name: name, description: description)
+        addActivity("Created profile '\(profile.name)'.")
+        showToast("Profile '\(profile.name)' created.")
+        scan()
+        return profile
+    }
+
+    @discardableResult
+    func addAssetToProfile(name: String, kind: ProfileAssetKind, assetID: String) throws -> ProfileEntry {
+        let profile = try ProfileManager.addAsset(profileName: name, kind: kind, assetID: assetID)
+        addActivity("Added \(kind.rawValue) asset '\(assetID)' to profile '\(name)'.")
+        showToast("Profile '\(name)' updated.")
+        scan()
+        return profile
+    }
+
+    @discardableResult
+    func removeAssetFromProfile(name: String, kind: ProfileAssetKind, assetID: String) throws -> ProfileEntry {
+        let profile = try ProfileManager.removeAsset(profileName: name, kind: kind, assetID: assetID)
+        addActivity("Removed \(kind.rawValue) asset '\(assetID)' from profile '\(name)'.")
+        showToast("Profile '\(name)' updated.")
+        scan()
+        return profile
+    }
+
+    func applyProfile(name: String, tool: String, cwd: URL) throws {
+        try ProfileManager.applyProfile(name: name, tool: tool, cwd: cwd)
+        addActivity("Applied profile '\(name)' to \(tool) in \(cwd.lastPathComponent).")
+        showToast("Applied profile '\(name)' to \(tool).")
+        scan(cwd: cwd)
+    }
+
+    func deleteProfile(name: String) throws {
+        try ProfileManager.deleteProfile(named: name)
+        addActivity("Deleted profile '\(name)'.")
+        showToast("Deleted profile '\(name)'.")
+        scan()
     }
 }
